@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hogwarts Audiobook Library</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1f2833">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Cinzel:wght@500;700&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- PDF.js library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="magic-theme">
+  <!-- Magical Background Particle Layer -->
+  <div class="stars-bg"></div>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-logo">
+      <i class="fa-solid fa-wand-sparkles logo-icon"></i>
+      <span class="logo-text">Hogwarts Library</span>
+    </div>
+    <div class="header-actions">
+      <button id="loadFolderBtn" class="magic-btn primary-glow">
+        <i class="fa-solid fa-folder-open"></i> Load Library
+      </button>
+      <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+    <!-- Load State Screen -->
+    <section id="welcomeScreen" class="welcome-screen">
+      <div class="welcome-card glass-panel">
+        <div class="crest-container">
+          <i class="fa-solid fa-shield-halved crest-icon"></i>
+          <div class="wand-animation"></div>
+        </div>
+        <h1 class="welcome-title">Hogwarts Audiobooks</h1>
+        <p class="welcome-subtitle">Welcome, wizard. Please load your Harry Potter library folder from Google Drive or local storage to begin.</p>
+        <div class="instructions">
+          <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Folder Structure Tips:</h3>
+          <ul>
+            <li>Ensure the folder contains directories for the books (e.g. <i>"1. Philosopher's Stone"</i>, <i>"2. The Chamber of Secrets"</i>).</li>
+            <li>Ensure files are separated by chapters (e.g. <i>"Chapter 01.mp3"</i> or <i>"01_chapter.mp3"</i>).</li>
+            <li>Include your combined PDF <i>"harrypotter full.pdf"</i> to activate the synchronized subtitles.</li>
+            <li>If you have book cover files (JPG/PNG) in each folder, the library will load them automatically!</li>
+          </ul>
+        </div>
+        <button id="welcomeLoadBtn" class="magic-btn large-glow">
+          <i class="fa-solid fa-folder-open"></i> Select Audiobooks Folder
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Player Dashboard (hidden until loaded) -->
+    <section id="playerDashboard" class="player-dashboard" style="display: none;">
+      <!-- Sidebar / Book Switcher Tabs -->
+      <nav class="book-sidebar glass-panel">
+        <div class="sidebar-title">7 Books of Magic</div>
+        <div class="book-tabs" id="bookTabsContainer">
+          <!-- Dynamically populated -->
+        </div>
+      </nav>
+
+      <!-- Main Playing Console -->
+      <div class="play-console">
+        <!-- Left Panel: Now Playing -->
+        <div class="now-playing-panel glass-panel">
+          <div class="now-playing-header">
+            <span class="active-book-tag" id="activeBookTag">Book 1</span>
+            <span class="active-chapter-tag" id="activeChapterTag">Chapter 1</span>
+          </div>
+
+          <!-- Cover Art Container with Seek Overlay Zones -->
+          <div class="cover-art-container" id="coverArtContainer">
+            <!-- Left Seek Indicator Overlay -->
+            <div class="seek-overlay seek-left" id="seekLeftIndicator">
+              <i class="fa-solid fa-backward"></i>
+              <span>-10s</span>
+            </div>
+            <!-- Right Seek Indicator Overlay -->
+            <div class="seek-overlay seek-right" id="seekRightIndicator">
+              <i class="fa-solid fa-forward"></i>
+              <span>+10s</span>
+            </div>
+            <img src="" alt="Book Cover" id="nowPlayingCover" class="now-playing-cover fallback-cover">
+            <!-- Audio Particle Visualizer overlay (toggled on/off) -->
+            <canvas id="visualizerCanvas" class="visualizer-canvas"></canvas>
+          </div>
+
+          <div class="track-details">
+            <h2 id="nowPlayingTitle" class="track-title">Select a Chapter</h2>
+            <p id="nowPlayingSubtitle" class="track-subtitle">Hogwarts Library</p>
+          </div>
+
+          <!-- Audio Progress Controls -->
+          <div class="audio-progress-container">
+            <span id="currentTime" class="time-label">0:00</span>
+            <div class="progress-bar-wrapper" id="progressWrapper">
+              <div class="progress-bar-bg"></div>
+              <div class="progress-bar-fill" id="progressFill"></div>
+              <div class="progress-handle" id="progressHandle"></div>
+            </div>
+            <span id="duration" class="time-label">0:00</span>
+          </div>
+
+          <!-- Core Playback Controls -->
+          <div class="audio-controls-row">
+            <button id="prevBtn" class="control-btn" title="Previous Chapter">
+              <i class="fa-solid fa-backward-step"></i>
+            </button>
+            <button id="playBtn" class="control-btn play-pause-btn primary-glow" title="Play">
+              <i class="fa-solid fa-play"></i>
+            </button>
+            <button id="nextBtn" class="control-btn" title="Next Chapter">
+              <i class="fa-solid fa-forward-step"></i>
+            </button>
+          </div>
+
+          <!-- Secondary Audio Adjusters -->
+          <div class="secondary-controls">
+            <!-- Playback Speed Controls -->
+            <div class="speed-control-container">
+              <span class="control-label"><i class="fa-solid fa-gauge-high"></i> Speed:</span>
+              <span id="speedValue" class="speed-value">1.0x</span>
+              <input type="range" id="speedSlider" min="0.5" max="3" step="0.1" value="1.0" class="magic-slider">
+            </div>
+
+            <!-- Volume Control -->
+            <div class="volume-control-container">
+              <button id="muteBtn" class="icon-btn" title="Mute/Unmute">
+                <i class="fa-solid fa-volume-high"></i>
+              </button>
+              <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="0.8" class="magic-slider volume-slider">
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Panel: Tabs for Chapters / Subtitles (Read Along) -->
+        <div class="info-tabs-panel glass-panel">
+          <div class="tab-headers">
+            <button class="tab-header-btn active" data-tab="chaptersTab">
+              <i class="fa-solid fa-list-ul"></i> Chapters
+            </button>
+            <button class="tab-header-btn" data-tab="readAlongTab" id="readAlongTabBtn">
+              <i class="fa-solid fa-book-open"></i> Read Along
+            </button>
+            <button class="tab-header-btn" data-tab="visualizerTab">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Visualizer
+            </button>
+          </div>
+
+          <!-- Chapters List Tab -->
+          <div id="chaptersTab" class="tab-content active">
+            <div class="chapters-list-header">
+              <span class="header-text" id="chaptersListHeaderTitle">Sorcerer's Stone - Chapter List</span>
+            </div>
+            <div class="chapters-list" id="chaptersList">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Read Along (Subtitles/PDF viewer) Tab -->
+          <div id="readAlongTab" class="tab-content">
+            <div class="read-along-header">
+              <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="pdfSearchInput" placeholder="Search word in PDF...">
+              </div>
+              <div class="manual-page-container" title="If sync drifts, manually load PDF page.">
+                <span class="label">PDF Page:</span>
+                <input type="number" id="manualPageInput" min="1" class="manual-page-input">
+                <button id="loadPageBtn" class="small-magic-btn">Go</button>
+              </div>
+            </div>
+            
+            <div id="pdfLoadingIndicator" class="pdf-loading-indicator" style="display: none;">
+              <i class="fa-solid fa-circle-notch fa-spin"></i> Loading and parsing Harry Potter book...
+            </div>
+            
+            <!-- Scrolling Lyrics Style Container -->
+            <div class="subtitles-viewport" id="subtitlesViewport">
+              <div class="subtitles-container" id="subtitlesContainer">
+                <div class="subtitles-placeholder">
+                  <i class="fa-solid fa-book"></i>
+                  <p>Load the Harry Potter full PDF to see subtitles.</p>
+                  <p class="secondary-note">Subtitles will automatically extract text from the PDF pages and sync with audio.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alignment Control Footer -->
+            <div class="subtitles-footer">
+              <span class="footer-tip"><i class="fa-solid fa-circle-info"></i> Click any paragraph to seek audio. Double click to synchronize timeline.</span>
+              <div class="offset-slider-container">
+                <span class="label"><i class="fa-solid fa-clock"></i> Offset:</span>
+                <span id="offsetValue">0.0s</span>
+                <input type="range" id="offsetSlider" min="-30" max="30" step="0.5" value="0" class="magic-slider offset-slider">
+              </div>
+            </div>
+          </div>
+
+          <!-- Visualizer Fullscreen Tab -->
+          <div id="visualizerTab" class="tab-content">
+            <div class="visualizer-options">
+              <div class="option-group">
+                <label>Theme Color:</label>
+                <select id="visualizerThemeSelect" class="magic-select">
+                  <option value="gold">Gryffindor Gold</option>
+                  <option value="burgundy">Gryffindor Crimson</option>
+                  <option value="blue">Ravenclaw Blue</option>
+                  <option value="green">Slytherin Green</option>
+                  <option value="purple">Hogwarts Purple</option>
+                </select>
+              </div>
+              <div class="option-group">
+                <label>Particle Count:</label>
+                <input type="range" id="particleCountSlider" min="50" max="300" value="150" class="magic-slider">
+              </div>
+            </div>
+            <div class="visualizer-tab-canvas-container">
+              <canvas id="largeVisualizerCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Corner Floating shortcut / Drawer Button -->
+  <button id="floatingDrawerBtn" class="floating-drawer-btn" style="display: none;" title="Open Chapter Selection">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <!-- Floating Drawer Selection Panel -->
+  <div class="drawer-overlay" id="drawerOverlay">
+    <div class="drawer-panel glass-panel">
+      <div class="drawer-header">
+        <h2>Quick Switcher</h2>
+        <button id="closeDrawerBtn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="drawer-content">
+        <h3>Select Book:</h3>
+        <select id="drawerBookSelect" class="magic-select">
+          <!-- Dynamically populated -->
+        </select>
+        <h3>Select Chapter:</h3>
+        <div class="drawer-chapters-list" id="drawerChaptersList">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Element -->
+  <audio id="audioPlayer"></audio>
+
+  <!-- Script Registration -->
+  <script src="app.js"></script>
+</body>
+</html>

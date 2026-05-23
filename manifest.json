@@ -1,0 +1,18 @@
+{
+  "name": "Hogwarts Audiobook player",
+  "short_name": "Hogwarts Audio",
+  "description": "Premium Harry Potter themed audiobook player with synchronized scroll reading.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0c10",
+  "theme_color": "#1f2833",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "assets/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
