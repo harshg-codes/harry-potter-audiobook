@@ -831,7 +831,7 @@ const state = {
 };
 
 // CORS Proxy for PDF and Audio Analysis
-const CORS_PROXY = "https://corsproxy.io/?";
+const CORS_PROXY = "https://corsproxy.io/?url=";
 
 // UI Elements
 const bookTabsContainer = document.getElementById('bookTabsContainer');
@@ -906,13 +906,13 @@ function initLibrary() {
     const book = state.books[bookId];
     
     if (data.coverId) {
-      book.coverUrl = https://docs.google.com/uc?export=download&id=\;
+      book.coverUrl = `https://docs.google.com/uc?export=download&id=${data.coverId}`;
     }
     
     book.chapters = data.chapters.map(ch => ({
       name: ch.name,
       id: ch.id,
-      url: https://docs.google.com/uc?export=download&id=\
+      url: `https://docs.google.com/uc?export=download&id=${ch.id}`
     }));
   }
 
@@ -934,10 +934,11 @@ async function loadCombinedPDF() {
     pdfLoadingIndicator.style.display = 'block';
     updateSubtitlesPlaceholder("Fetching and loading Harry Potter book PDF from Google Drive...");
     
-    const pdfUrl = \\;
+    const rawPdfUrl = `https://docs.google.com/uc?export=download&id=${PDF_FILE_ID}`;
+    const pdfUrl = `${CORS_PROXY}${encodeURIComponent(rawPdfUrl)}`;
     
     state.pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
-    console.log(PDF Loaded! Total Pages: \);
+    console.log(`PDF Loaded! Total Pages: ${state.pdfDoc.numPages}`);
     pdfLoadingIndicator.style.display = 'none';
     updateSubtitlesPlaceholder("PDF loaded successfully. Subtitles will sync as you play chapters.");
   } catch (err) {
@@ -948,12 +949,12 @@ async function loadCombinedPDF() {
 }
 
 function updateSubtitlesPlaceholder(message) {
-  subtitlesContainer.innerHTML = 
+  subtitlesContainer.innerHTML = `
     <div class="subtitles-placeholder">
       <i class="fa-solid fa-book-open-reader"></i>
-      <p>\</p>
+      <p>${message}</p>
     </div>
-  ;
+  `;
 }
 
 function renderBookTabs() {
@@ -964,24 +965,23 @@ function renderBookTabs() {
     const book = state.books[bookId];
 
     const tab = document.createElement('div');
-    tab.className = ook-tab \;
+    tab.className = `book-tab ${state.activeBookId === bookId ? 'active' : ''}`;
     tab.dataset.id = bookId;
     
     let coverHtml = '';
     if (book.coverUrl) {
-      // Direct load cover from Drive
-      coverHtml = <img src="\" class="tab-cover-thumbnail" alt="\">;
+      coverHtml = `<img src="${book.coverUrl}" class="tab-cover-thumbnail" alt="${book.name}">`;
     } else {
-      coverHtml = <div class="tab-cover-thumbnail fallback-cover" style="background: var(--color-burgundy); border: 1px dashed var(--color-gold); display:flex; align-items:center; justify-content:center; color: var(--color-gold); font-size: 0.8rem; font-family: var(--font-magic);">HP\</div>;
+      coverHtml = `<div class="tab-cover-thumbnail fallback-cover" style="background: var(--color-burgundy); border: 1px dashed var(--color-gold); display:flex; align-items:center; justify-content:center; color: var(--color-gold); font-size: 0.8rem; font-family: var(--font-magic);">HP${bookId}</div>`;
     }
 
-    tab.innerHTML = 
-      \
+    tab.innerHTML = `
+      ${coverHtml}
       <div class="tab-details">
-        <span class="tab-num">Book \</span>
-        <span class="tab-name">\</span>
+        <span class="tab-num">Book ${bookId}</span>
+        <span class="tab-name">${book.name.replace(/^\d\.\s+/, '')}</span>
       </div>
-    ;
+    `;
 
     tab.addEventListener('click', () => selectBook(bookId));
     bookTabsContainer.appendChild(tab);
@@ -996,7 +996,7 @@ function selectBook(bookId) {
   });
 
   renderChaptersList();
-  chaptersListHeaderTitle.textContent = \ - Chapter List;
+  chaptersListHeaderTitle.textContent = `${state.books[bookId].name} - Chapter List`;
   
   if (state.activeChapterIndex === null || state.activeBookId !== bookId) {
     selectChapter(0, false);
@@ -1010,16 +1010,16 @@ function renderChaptersList() {
   chapters.forEach((ch, index) => {
     const item = document.createElement('div');
     const isActive = (state.activeBookId === state.activeBookId && state.activeChapterIndex === index);
-    item.className = chapter-item \;
+    item.className = `chapter-item ${isActive ? 'active' : ''}`;
     
     let displayTitle = ch.name.replace(/\.[^/.]+$/, "");
     displayTitle = displayTitle.replace(/^\d+[-_\s]*/, "");
 
-    item.innerHTML = 
-      <span class="chapter-num">\</span>
-      <span class="chapter-name" title="\">\</span>
+    item.innerHTML = `
+      <span class="chapter-num">${index + 1}</span>
+      <span class="chapter-name" title="${ch.name}">${displayTitle}</span>
       <span class="chapter-play-indicator"><i class="fa-solid fa-volume-high"></i></span>
-    ;
+    `;
 
     item.addEventListener('click', () => {
       document.querySelectorAll('.chapter-item').forEach(i => i.classList.remove('active'));
@@ -1039,17 +1039,14 @@ function selectChapter(chapterIndex, shouldPlay = true) {
   const ch = book.chapters[chapterIndex];
 
   // Set audio source to Google Drive direct link
-  // To allow Canvas visualization, we load audio via CORS proxy if it fails or use directly.
-  // We try loading through CORS proxy so Web Audio API doesn't throw a cross-origin error.
-  const audioUrl = \\&url=\;
+  // Use CORS proxy to bypass cross-origin browser policies for AudioContext analysis
+  const audioUrl = `${CORS_PROXY}${encodeURIComponent(ch.url)}`;
   audioPlayer.crossOrigin = "anonymous";
-  
-  // Set source
-  audioPlayer.src = ch.url; // Use direct Google Drive URL as standard source
+  audioPlayer.src = audioUrl;
 
-  // Let's add an error listener to fallback if proxy or direct download has issues
+  // Let's add an error listener to fallback to direct play if the proxy fails
   audioPlayer.onerror = (e) => {
-    console.warn("Audio load error, retrying without CORS proxy...", e);
+    console.warn("Proxy load failed, playing directly from Google Drive...", e);
     audioPlayer.removeAttribute("crossOrigin");
     audioPlayer.src = ch.url;
   };
@@ -1057,8 +1054,8 @@ function selectChapter(chapterIndex, shouldPlay = true) {
   let title = ch.name.replace(/\.[^/.]+$/, "");
   title = title.replace(/^\d+[-_\s]*/, "");
   
-  activeBookTag.textContent = Book \;
-  activeChapterTag.textContent = Chapter \;
+  activeBookTag.textContent = `Book ${state.activeBookId}`;
+  activeChapterTag.textContent = `Chapter ${chapterIndex + 1}`;
   nowPlayingTitle.textContent = title;
   nowPlayingSubtitle.textContent = book.name.replace(/^\d\.\s+/, '');
   
@@ -1093,14 +1090,14 @@ function generateCoverFallback(bookId, bookName) {
 
   const card = document.createElement('div');
   card.className = 'fallback-card';
-  card.innerHTML = 
+  card.innerHTML = `
     <div class="fallback-decor">âœ¦ âœ¦ âœ¦</div>
     <div>
       <div style="font-size: 0.85rem; letter-spacing: 2px; color: var(--color-gold); font-family: var(--font-magic); margin-bottom:5px;">HARRY POTTER</div>
-      <div class="fallback-title">\</div>
+      <div class="fallback-title">${bookName}</div>
     </div>
     <div class="fallback-author">J.K. ROWLING</div>
-  ;
+  `;
   
   nowPlayingCover.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="3" height="4"></svg>';
   nowPlayingCover.className = "now-playing-cover fallback-cover";
@@ -1184,8 +1181,8 @@ audioPlayer.addEventListener('timeupdate', () => {
     const dur = audioPlayer.duration;
     
     const pct = (curTime / dur) * 100;
-    progressFill.style.width = \%;
-    progressHandle.style.left = \%;
+    progressFill.style.width = `${pct}%`;
+    progressHandle.style.left = `${pct}%`;
 
     currentTimeLabel.textContent = formatTime(curTime);
     durationLabel.textContent = formatTime(dur);
@@ -1208,9 +1205,9 @@ function formatTime(secs) {
   
   if (hours > 0) {
     const padMins = minutes < 10 ? '0' + minutes : minutes;
-    return \:\:\;
+    return `${hours}:${padMins}:${padSecs}`;
   }
-  return \:\;
+  return `${minutes}:${padSecs}`;
 }
 
 progressWrapper.addEventListener('click', (e) => {
@@ -1339,13 +1336,13 @@ async function loadChapterSubtitles(chapterTitle, chapterNum) {
   
   try {
     let startPage = await findChapterPageInPDF(chapterTitle, chapterNum);
-    console.log(Found chapter on page: \);
+    console.log(`Found chapter on page: ${startPage}`);
     
     if (startPage > 0) {
       manualPageInput.value = startPage;
       await extractAndDisplaySubtitles(startPage);
     } else {
-      updateSubtitlesPlaceholder(Could not automatically locate page in PDF. Please enter starting page below.);
+      updateSubtitlesPlaceholder(`Could not automatically locate page in PDF. Please enter starting page below.`);
       pdfLoadingIndicator.style.display = 'none';
     }
   } catch (err) {
@@ -1361,12 +1358,12 @@ async function findChapterPageInPDF(chapterTitle, chapterNum) {
   const cleanTitle = chapterTitle.toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
   const searchWords = cleanTitle.split(/\s+/).filter(w => w.length > 2);
   
-  const cacheKey = \_\;
+  const cacheKey = `${state.activeBookId}_${chapterNum}`;
   if (state.pdfChapterPagesCache[cacheKey]) {
     return state.pdfChapterPagesCache[cacheKey];
   }
 
-  console.log(Searching chapter title inside pages \ to \...);
+  console.log(`Searching chapter title inside pages ${range.start} to ${range.end}...`);
   
   for (let pageNum = range.start; pageNum <= range.end; pageNum++) {
     if (pageNum > state.pdfDoc.numPages) break;
@@ -1376,7 +1373,7 @@ async function findChapterPageInPDF(chapterTitle, chapterNum) {
     const pageText = textContent.items.map(item => item.str).join(' ').toLowerCase();
 
     const hasChapterHeading = pageText.includes("chapter") && 
-      (pageText.includes( \ ) || pageText.includes( \ ) || pageText.includes( \ ));
+      (pageText.includes(` ${chapterNum} `) || pageText.includes(` ${numberToRoman(chapterNum)} `) || pageText.includes(` ${numberToEnglish(chapterNum)} `));
 
     let keywordMatches = 0;
     searchWords.forEach(word => {
@@ -1646,16 +1643,16 @@ function renderDrawerChapters(bookId) {
   chapters.forEach((ch, index) => {
     const item = document.createElement('div');
     const isActive = (state.activeBookId === bookId && state.activeChapterIndex === index);
-    item.className = chapter-item \;
+    item.className = `chapter-item ${isActive ? 'active' : ''}`;
     
     let displayTitle = ch.name.replace(/\.[^/.]+$/, "");
     displayTitle = displayTitle.replace(/^\d+[-_\s]*/, "");
 
-    item.innerHTML = 
-      <span class="chapter-num">\</span>
-      <span class="chapter-name">\</span>
+    item.innerHTML = `
+      <span class="chapter-num">${index + 1}</span>
+      <span class="chapter-name">${displayTitle}</span>
       <span class="chapter-play-indicator"><i class="fa-solid fa-volume-high"></i></span>
-    ;
+    `;
 
     item.addEventListener('click', () => {
       selectBook(bookId);
@@ -1768,11 +1765,11 @@ function initParticles() {
 
 function getThemeRGB(theme, alpha = 1) {
   const themes = {
-    gold: gba(212, 175, 55, \),
-    burgundy: gba(158, 27, 50, \),
-    blue: gba(42, 117, 187, \),
-    green: gba(46, 125, 50, \),
-    purple: gba(142, 68, 173, \)
+    gold: `rgba(212, 175, 55, ${alpha})`,
+    burgundy: `rgba(158, 27, 50, ${alpha})`,
+    blue: `rgba(42, 117, 187, ${alpha})`,
+    green: `rgba(46, 125, 50, ${alpha})`,
+    purple: `rgba(142, 68, 173, ${alpha})`
   };
   return themes[theme] || themes.gold;
 }
@@ -1905,3 +1902,5 @@ visualizerThemeSelect.addEventListener('change', (e) => {
 particleCountSlider.addEventListener('input', (e) => {
   particleCount = parseInt(e.target.value);
 });
+'@
+
